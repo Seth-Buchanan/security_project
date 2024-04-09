@@ -5,7 +5,7 @@ if [ $(id -u) != 0 ]; then
     exit 1
 fi
 
-set -e                          # Exit if any command fails
+set -e				# Exit if any command fails
 
 try_install() {
     dpkg -l "$1" | grep -q ^ii && return 1
@@ -21,18 +21,31 @@ packages=(
 
 for package in "${packages[@]}"; do
     if try_install "$package"; then
-        echo "$package is now installed"
+	echo "$package is now installed"
     else
-        echo "$package has already been installed"
+	echo "$package has already been installed"
     fi
 done
 
 # Firewall rules
 ufw allow ssh
-ufw enable --force
+ufw --force enable
 
 # Disable root login over ssh
-sed -i -e "s/\(^\|#\)PermitRootLogin.*$/PermitRootLogin prohibit-password/" /etc/ssh/sshd_config
+sed -i -e "s/\(^\|#\)PermitRootLogin.*$/PermitRootLogin prohibit-password/" \
+    /etc/ssh/sshd_config
 
-systemctl enable ssh
-systemctl start ssh
+# If not already, run on startup
+if ! [ `systemctl is-enabled ssh` == "enabled" ]; then
+    systemctl enable ssh
+    echo "sshd has been enabled"
+fi
+
+# If not running, start sshd. If running restart sshd.
+if [ `systemctl is-active ssh` == "active" ]; then
+    systemctl restart ssh
+    echo "sshd has been restarted"
+else
+    systemctl start ssh
+    echo "sshd has been started"
+fi
